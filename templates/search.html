@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Results - {{ query }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap');
+
+        :root {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #131316;
+            --accent: #8b5cf6;
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --border: #27272a;
+        }
+
+        body {
+            font-family: 'IBM Plex Sans Arabic', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .glass {
+            background: rgba(19, 19, 22, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+        }
+
+        .result-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .toggle-btn {
+            transition: all 0.2s;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .toggle-btn.active {
+            opacity: 1;
+            box-shadow: 0 0 12px rgba(139, 92, 246, 0.3);
+        }
+
+        .toggle-btn:not(.active) {
+            opacity: 0.4;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen">
+    <!-- Header -->
+    <header class="glass sticky top-0 z-50">
+        <div class="max-w-4xl mx-auto px-4 py-4">
+            <form id="searchForm" action="/search" method="get" class="space-y-3">
+                <div class="flex gap-2">
+                    <a href="/" class="text-gray-400 hover:text-white mr-4 self-center">←</a>
+                    <input type="text" name="q" value="{{ query }}"
+                        class="flex-1 bg-transparent px-4 py-2 rounded-lg border border-gray-700 text-white outline-none focus:border-purple-500 transition"
+                        placeholder="اكتب استعلام البحث...">
+                    <button type="submit"
+                        class="px-4 py-2 bg-purple-500 hover:bg-purple-600 rounded-lg font-medium transition">
+                        بحث
+                    </button>
+                </div>
+                <!-- Algorithm toggles -->
+                <div class="flex items-center gap-3 text-sm">
+                    <span class="text-gray-500">خوارزميات البحث:</span>
+
+                    <input type="hidden" name="use_bm25" value="false">
+                    <label
+                        class="toggle-btn flex items-center gap-1.5 px-3 py-1 rounded-lg border {{ 'border-purple-500/50 bg-purple-500/10 text-purple-400' if use_bm25 else 'border-gray-600 bg-gray-800 text-gray-500' }} {{ 'active' if use_bm25 else '' }}">
+                        <input type="checkbox" name="use_bm25" value="true" {% if use_bm25 %}checked{% endif %}
+                            onchange="this.parentElement.previousElementSibling.value = this.checked" class="hidden">
+                        <span class="w-2 h-2 rounded-full {{ 'bg-purple-400' if use_bm25 else 'bg-gray-600' }}"></span>
+                        BM25
+                    </label>
+
+                    <input type="hidden" name="use_dense" value="false">
+                    <label
+                        class="toggle-btn flex items-center gap-1.5 px-3 py-1 rounded-lg border {{ 'border-pink-500/50 bg-pink-500/10 text-pink-400' if use_dense else 'border-gray-600 bg-gray-800 text-gray-500' }} {{ 'active' if use_dense else '' }}">
+                        <input type="checkbox" name="use_dense" value="true" {% if use_dense %}checked{% endif %}
+                            onchange="this.parentElement.previousElementSibling.value = this.checked" class="hidden">
+                        <span class="w-2 h-2 rounded-full {{ 'bg-pink-400' if use_dense else 'bg-gray-600' }}"></span>
+                        Dense kNN
+                    </label>
+
+                    <input type="hidden" name="use_sparse" value="false">
+                    <label
+                        class="toggle-btn flex items-center gap-1.5 px-3 py-1 rounded-lg border {{ 'border-blue-500/50 bg-blue-500/10 text-blue-400' if use_sparse else 'border-gray-600 bg-gray-800 text-gray-500' }} {{ 'active' if use_sparse else '' }}">
+                        <input type="checkbox" name="use_sparse" value="true" {% if use_sparse %}checked{% endif %}
+                            onchange="this.parentElement.previousElementSibling.value = this.checked" class="hidden">
+                        <span class="w-2 h-2 rounded-full {{ 'bg-blue-400' if use_sparse else 'bg-gray-600' }}"></span>
+                        Sparse Neural
+                    </label>
+
+                    <input type="hidden" name="use_frr" value="false">
+                    <label
+                        class="toggle-btn flex items-center gap-1.5 px-3 py-1 rounded-lg border {{ 'border-green-500/50 bg-green-500/10 text-green-400' if use_frr else 'border-gray-600 bg-gray-800 text-gray-500' }} {{ 'active' if use_frr else '' }}">
+                        <input type="checkbox" name="use_frr" value="true" {% if use_frr %}checked{% endif %}
+                            onchange="this.parentElement.previousElementSibling.value = this.checked" class="hidden">
+                        <span class="w-2 h-2 rounded-full {{ 'bg-green-400' if use_frr else 'bg-gray-600' }}"></span>
+                        FRR Scoring
+                    </label>
+                </div>
+            </form>
+        </div>
+    </header>
+
+    <!-- Results -->
+    <main class="max-w-4xl mx-auto px-4 py-8">
+        {% if query %}
+        <div class="mb-6 text-gray-400">
+            نتائج البحث عن: <span class="text-white font-medium">"{{ query }}"</span>
+            <span class="mx-2">|</span>
+            {{ results|length }} نتيجة
+        </div>
+        {% endif %}
+
+        {% if results %}
+        <div class="space-y-4">
+            {% for result in results %}
+            <div class="glass rounded-xl p-6 result-card transition">
+
+                <!-- Header -->
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs px-2 py-1 bg-purple-500/20 text-purple-400 rounded">
+                            #{{ loop.index }}
+                        </span>
+                        <span class="text-xs text-gray-500 font-mono">
+                            {{ result.document_id }}
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        {% if result.score is not none %}
+                        <span class="text-xs px-2 py-1 bg-green-500/20 text-green-400 rounded">
+                            FRR: {{ "%.4f"|format(result.score) }}
+                        </span>
+                        {% endif %}
+                        {% if result.individual_scores %}
+                        {% if 'bm25' in result.individual_scores %}
+                        <span class="text-xs px-2 py-1 bg-purple-500/20 text-purple-400 rounded">
+                            BM25: {{ "%.4f"|format(result.individual_scores.bm25) }}
+                        </span>
+                        {% endif %}
+                        {% if 'knn' in result.individual_scores %}
+                        <span class="text-xs px-2 py-1 bg-pink-500/20 text-pink-400 rounded">
+                            Dense: {{ "%.4f"|format(result.individual_scores.knn) }}
+                        </span>
+                        {% endif %}
+                        {% if 'sparse' in result.individual_scores %}
+                        <span class="text-xs px-2 py-1 bg-blue-500/20 text-blue-400 rounded">
+                            Sparse: {{ "%.4f"|format(result.individual_scores.sparse) }}
+                        </span>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Text -->
+                <p class="text-gray-300 leading-relaxed mb-3" id="text-{{ loop.index }}">
+                    {{ result.text }}
+                </p>
+
+                <!-- Read More button -->
+                <button onclick="loadFullText(this.getAttribute('data-doc-id'), this.getAttribute('data-index'))"
+                    data-doc-id="{{ result.document_id }}" data-index="{{ loop.index }}"
+                    id="readmore-btn-{{ loop.index }}"
+                    class="text-sm text-purple-400 hover:text-purple-300 transition mb-3 cursor-pointer">
+                    المزيد ↓
+                </button>
+
+                <!-- Metadata toggle -->
+                <div class="text-xs text-gray-600 text-center mb-2 cursor-pointer"
+                    data-index="{{ loop.index }}" onclick="toggleDetails(this.getAttribute('data-index'))">
+                    ▼ التفاصيل
+                </div>
+                <div class="hidden" id="details-{{ loop.index }}">
+                    <div class="border-t border-gray-700 pt-4 mt-2">
+                        {% if result.metadata.story_titel %}
+                        <div class="mb-2">
+                            <span class="text-xs text-gray-500">العنوان:</span>
+                            <span class="text-sm text-white mr-2">{{ result.metadata.story_titel }}</span>
+                        </div>
+                        {% endif %}
+
+                        {% if result.metadata.story_category %}
+                        <div class="mb-2">
+                            <span class="text-xs text-gray-500">التصنيف:</span>
+                            <span class="text-sm px-2 py-1 bg-blue-500/20 text-blue-400 rounded mr-2">
+                                {{ result.metadata.story_category }}
+                            </span>
+                        </div>
+                        {% endif %}
+
+                        {% if result.metadata.story_keywords %}
+                        <div class="mb-2">
+                            <span class="text-xs text-gray-500">الكلمات المفتاحية:</span>
+                            <div class="flex flex-wrap gap-1 mt-1">
+                                {% for kw in result.metadata.story_keywords %}
+                                <span class="text-xs px-2 py-1 bg-gray-700 text-gray-300 rounded">
+                                    {{ kw }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if result.metadata.story_entities %}
+                        <div class="mb-2">
+                            <span class="text-xs text-gray-500">الكيانات:</span>
+                            <div class="flex flex-wrap gap-1 mt-1">
+                                {% for entity in result.metadata.story_entities %}
+                                <span class="text-xs px-2 py-1 bg-pink-500/20 text-pink-400 rounded">
+                                    {{ entity.entity_value }}
+                                    <span class="text-pink-500/50">({{ entity.entity_type }})</span>
+                                </span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-16">
+            <div class="text-6xl mb-4">🔍</div>
+            <div class="text-xl text-gray-400">
+                {% if query %}
+                لا توجد نتائج
+                {% else %}
+                ابدأ البحث عن المستندات
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </main>
+
+    <script>
+        function toggleDetails(index) {
+            const el = document.getElementById('details-' + index);
+            if (el) {
+                el.classList.toggle('hidden');
+            }
+        }
+
+        function loadFullText(docId, index) {
+            const textEl = document.getElementById('text-' + index);
+            const btnEl = document.getElementById('readmore-btn-' + index);
+
+            if (btnEl.dataset.loaded === 'true') {
+                btnEl.textContent = 'تقليص ↑';
+                btnEl.dataset.expanded = 'true';
+                return;
+            }
+            if (btnEl.dataset.expanded === 'true') {
+                textEl.innerHTML = textEl.dataset.truncated;
+                btnEl.textContent = 'المزيد ↓';
+                btnEl.dataset.expanded = 'false';
+                return;
+            }
+
+            btnEl.textContent = 'جاري التحميل...';
+
+            fetch('/api/document/' + encodeURIComponent(docId))
+                .then(r => {
+                    if (!r.ok) throw new Error('Not found');
+                    return r.json();
+                })
+                .then(data => {
+                    textEl.dataset.truncated = textEl.innerHTML;
+                    textEl.textContent = data.text;
+                    btnEl.dataset.loaded = 'true';
+                    btnEl.dataset.expanded = 'true';
+                    btnEl.textContent = 'تقليص ↑';
+                })
+                .catch(() => {
+                    btnEl.textContent = 'خطأ في التحميل';
+                    setTimeout(() => { btnEl.textContent = 'المزيد ↓'; }, 2000);
+                });
+        }
+
+        // Toggle button visual state
+        document.querySelectorAll('.toggle-btn').forEach(btn => {
+            const checkbox = btn.querySelector('input[type="checkbox"]');
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                checkbox.checked = !checkbox.checked;
+                if (checkbox.checked) {
+                    btn.classList.add('active');
+                    btn.querySelector('.w-2').classList.remove('bg-gray-600');
+                    const colorClass = btn.classList.contains('border-purple-500/50') ? 'bg-purple-400' :
+                        btn.classList.contains('border-pink-500/50') ? 'bg-pink-400' :
+                            btn.classList.contains('border-green-500/50') ? 'bg-green-400' : 'bg-blue-400';
+                    btn.querySelector('.w-2').classList.add(colorClass);
+                } else {
+                    btn.classList.remove('active');
+                    const dot = btn.querySelector('.w-2');
+                    dot.className = 'w-2 h-2 rounded-full bg-gray-600';
+                    btn.querySelector('input').removeAttribute('checked');
+                }
+                document.getElementById('searchForm').submit();
+            });
+        });
+    </script>
+</body>
+
+</html>

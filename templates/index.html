@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arabic Document Search</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap');
+
+        :root {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #131316;
+            --bg-tertiary: #1a1a1f;
+            --accent: #8b5cf6;
+            --accent-hover: #7c3aed;
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --border: #27272a;
+        }
+
+        body {
+            font-family: 'IBM Plex Sans Arabic', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .glass {
+            background: rgba(19, 19, 22, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+        }
+
+        .gradient-border {
+            position: relative;
+        }
+
+        .gradient-border::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg, var(--accent), #ec4899);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+        }
+
+        .toggle-btn {
+            transition: all 0.2s;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .toggle-btn.active {
+            opacity: 1;
+            box-shadow: 0 0 12px rgba(139, 92, 246, 0.3);
+        }
+
+        .toggle-btn:not(.active) {
+            opacity: 0.4;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen">
+    <!-- Header -->
+    <header class="glass sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+            <h1 class="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                Arabic Search
+            </h1>
+            <nav class="flex gap-4 text-sm text-gray-400">
+                <a href="/" class="hover:text-white transition">Home</a>
+                <a href="/api/docs" class="hover:text-white transition">API</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <main class="max-w-4xl mx-auto px-4 py-16">
+        <div class="text-center mb-12">
+            <h2 class="text-4xl font-bold mb-4">
+                بحث ذكي في المستندات العربية
+            </h2>
+            <p class="text-gray-400 text-lg">
+                Semantic + Keyword + Neural Sparse Search
+            </p>
+        </div>
+
+        <!-- Search Box -->
+        <div class="glass rounded-2xl p-4 mb-6">
+            <form id="searchForm" action="/search" method="get" class="space-y-3">
+                <div class="flex gap-2">
+                    <input type="text" name="q" placeholder="اكتب استعلام البحث..."
+                        class="flex-1 bg-gray-800 px-4 py-3 text-lg text-white placeholder-gray-400 rounded-xl border border-gray-700 focus:border-purple-500 focus:outline-none"
+                        autocomplete="off">
+                    <button type="submit"
+                        class="px-6 py-3 bg-purple-500 hover:bg-purple-600 rounded-xl font-medium transition cursor-pointer text-white">
+                        بحث
+                    </button>
+                </div>
+                <!-- Algorithm toggles -->
+                <div class="flex items-center gap-3 text-sm">
+                    <span class="text-gray-500">خوارزميات البحث:</span>
+
+                    <input type="hidden" name="use_bm25" value="true">
+                    <label
+                        class="toggle-btn active flex items-center gap-1.5 px-3 py-1 rounded-lg border border-purple-500/50 bg-purple-500/10 text-purple-400">
+                        <input type="checkbox" name="use_bm25" value="true" checked
+                            onchange="this.parentElement.previousElementSibling.value = this.checked" class="hidden">
+                        <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+                        BM25
+                    </label>
+
+                    <input type="hidden" name="use_dense" value="true">
+                    <label
+                        class="toggle-btn active flex items-center gap-1.5 px-3 py-1 rounded-lg border border-pink-500/50 bg-pink-500/10 text-pink-400">
+                        <input type="checkbox" name="use_dense" value="true" checked
+                            onchange="this.parentElement.previousElementSibling.value = this.checked" class="hidden">
+                        <span class="w-2 h-2 rounded-full bg-pink-400"></span>
+                        Dense kNN
+                    </label>
+
+                    <input type="hidden" name="use_sparse" value="true">
+                    <label
+                        class="toggle-btn active flex items-center gap-1.5 px-3 py-1 rounded-lg border border-blue-500/50 bg-blue-500/10 text-blue-400">
+                        <input type="checkbox" name="use_sparse" value="true" checked
+                            onchange="this.parentElement.previousElementSibling.value = this.checked" class="hidden">
+                        <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+                        Sparse Neural
+                    </label>
+
+                    <input type="hidden" name="use_frr" value="true">
+                    <label
+                        class="toggle-btn active flex items-center gap-1.5 px-3 py-1 rounded-lg border border-green-500/50 bg-green-500/10 text-green-400">
+                        <input type="checkbox" name="use_frr" value="true" checked
+                            onchange="this.parentElement.previousElementSibling.value = this.checked" class="hidden">
+                        <span class="w-2 h-2 rounded-full bg-green-400"></span>
+                        FRR Scoring
+                    </label>
+                </div>
+            </form>
+        </div>
+
+        <!-- Stats -->
+        <div class="grid grid-cols-3 gap-4 mb-12">
+            <div class="glass rounded-xl p-4 text-center">
+                <div class="text-2xl font-bold text-purple-400" id="doc-count">-</div>
+                <div class="text-sm text-gray-500">Documents</div>
+            </div>
+            <div class="glass rounded-xl p-4 text-center">
+                <div class="text-2xl font-bold text-pink-400" id="queue-size">-</div>
+                <div class="text-sm text-gray-500">In Queue</div>
+            </div>
+            <div class="glass rounded-xl p-4 text-center">
+                <div class="text-2xl font-bold text-blue-400" id="processed">-</div>
+                <div class="text-sm text-gray-500">Processed</div>
+            </div>
+        </div>
+
+        <!-- How it works -->
+        <div class="glass rounded-2xl p-6">
+            <h3 class="text-lg font-semibold mb-4">كيف يعمل البحث؟</h3>
+            <div class="grid md:grid-cols-3 gap-4 text-sm">
+                <div class="p-4 bg-purple-500/10 rounded-xl border border-purple-500/20">
+                    <div class="font-medium text-purple-400 mb-2">BM25</div>
+                    <p class="text-gray-400">مطابقة النصوص باستخدام الترقيم العربي</p>
+                </div>
+                <div class="p-4 bg-pink-500/10 rounded-xl border border-pink-500/20">
+                    <div class="font-medium text-pink-400 mb-2">Dense Vector</div>
+                    <p class="text-gray-400">فهم المعنى الدلالي بـ 640 بعد</p>
+                </div>
+                <div class="p-4 bg-blue-500/10 rounded-xl border border-blue-500/20">
+                    <div class="font-medium text-blue-400 mb-2">Sparse Neural</div>
+                    <p class="text-gray-400">مطابقة ذكية للكلمات المفتاحية</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Fetch stats
+        fetch('/api/stats')
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('doc-count').textContent = data.elasticsearch.document_count || 0;
+                document.getElementById('queue-size').textContent = data.watcher.main_queue || 0;
+                document.getElementById('processed').textContent = data.watcher.processed_files || 0;
+            })
+            .catch(e => console.error('Failed to fetch stats:', e));
+
+        // Toggle button visual state
+        document.querySelectorAll('.toggle-btn').forEach(btn => {
+            const checkbox = btn.querySelector('input[type="checkbox"]');
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                checkbox.checked = !checkbox.checked;
+                if (checkbox.checked) {
+                    btn.classList.add('active');
+                    const dot = btn.querySelector('.w-2');
+                    dot.classList.remove('bg-gray-600');
+                    const colorClass = btn.classList.contains('border-purple-500/50') ? 'bg-purple-400' :
+                        btn.classList.contains('border-pink-500/50') ? 'bg-pink-400' :
+                            btn.classList.contains('border-green-500/50') ? 'bg-green-400' : 'bg-blue-400';
+                    dot.classList.add(colorClass);
+                } else {
+                    btn.classList.remove('active');
+                    const dot = btn.querySelector('.w-2');
+                    dot.className = 'w-2 h-2 rounded-full bg-gray-600';
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>
